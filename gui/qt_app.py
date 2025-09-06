@@ -1,18 +1,21 @@
 import sys
-from typing import List, Dict, Any
+from typing import List, Optional
+
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QComboBox, QSpinBox, QTabWidget, QMessageBox
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QListWidget, QComboBox, QSpinBox, QMessageBox
 )
 
+# Core modules from src/
 from src.spotify_client import get_spotify_client
-from src.user_data import (
-    top_artists, genre_breakdown, top_tracks, top_tracks
-)
+from src.user_data import top_artists  # MUST return List[str], e.g., ["Drake", "Bad Bunny", ...]
+
+
+# ---------- Workers (off the UI thread) ----------
 
 class LoginWorker(QObject):
-    done = Signal(object, object)  # (sp_or_none, error_or_none)
+    done = Signal(object, object)  # (sp_or_None, error_or_None)
 
     @Slot()
     def run(self):
@@ -24,7 +27,7 @@ class LoginWorker(QObject):
 
 
 class TopArtistsWorker(QObject):
-    done = Signal(list, object)  # (items, error)
+    done = Signal(list, object)  # (names: List[str], error: Optional[Exception])
 
     def __init__(self, sp, time_range: str, limit: int, offset: int = 0):
         super().__init__()
@@ -36,11 +39,16 @@ class TopArtistsWorker(QObject):
     @Slot()
     def run(self):
         try:
-            resp: Dict[str, Any] = top_artists(
-                self.sp, limit=self.limit, time_range=self.time_range, offset=self.offset
+            # EXPECT: top_artists(...) -> List[str]
+            names: List[str] = top_artists(
+                self.sp,
+                limit=self.limit,
+                time_range=self.time_range,
+                offset=self.offset
             )
-            items: List[Dict[str, Any]] = resp.get("items", [])
-            self.done.emit(items, None)
+            # Defensive sanitize: ensure list[str]
+            names = [str(n) for n in (names or [])]
+            self.done.emit(names, None)
         except Exception as e:
             self.done.emit([], e)
 
@@ -51,7 +59,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Spotify Companion — Native")
-        self.sp = None
+        self.sp = None  # Spotipy client after login
 
         root = QVBoxLayout(self)
 
@@ -65,8 +73,9 @@ class MainWindow(QWidget):
         row.addWidget(self.btn_login)
         root.addLayout(row)
 
-        # Controls for Top Artists
+        # Controls (Top Artists)
         ctrl = QHBoxLayout()
+
         ctrl.addWidget(QLabel("Time Range:"))
         self.cmb_range = QComboBox()
         self.cmb_range.addItems(["short_term", "medium_term", "long_term"])
@@ -79,8 +88,8 @@ class MainWindow(QWidget):
         ctrl.addWidget(self.spn_limit)
 
         self.btn_fetch = QPushButton("Fetch Top Artists")
-        self.btn_fetch.clicked.connect(self.on_fetch_artists)
         self.btn_fetch.setEnabled(False)
+        self.btn_fetch.clicked.connect(self.on_fetch_artists)
         ctrl.addWidget(self.btn_fetch)
 
         root.addLayout(ctrl)
@@ -89,7 +98,7 @@ class MainWindow(QWidget):
         self.list = QListWidget()
         root.addWidget(self.list)
 
-    # ---------- Slots ----------
+    # ---------- Slots & Actions ----------
 
     def on_login_clicked(self):
         self.status.setText("Signing in...")
@@ -138,30 +147,27 @@ class MainWindow(QWidget):
         self.artists_worker = TopArtistsWorker(self.sp, time_range=tr, limit=lim)
         self.artists_worker.moveToThread(self.artists_thread)
         self.artists_thread.started.connect(self.artists_worker.run)
-        self.artists_worker.done.connect(self.on_artists_done)
+        self.artists_worker.done.connect(selfon_artists_done := self.on_artists_done)  # keep reference
         self.artists_worker.done.connect(self.artists_thread.quit)
         self.artists_worker.done.connect(self.artists_worker.deleteLater)
         self.artists_thread.finished.connect(self.artists_thread.deleteLater)
         self.artists_thread.start()
 
     @Slot(list, object)
-    def on_artists_done(self, items, error):
+    def on_artists_done(self, names: List[str], error: Optional[Exception]):
         if error:
             self.status.setText("Error loading artists")
             QMessageBox.critical(self, "API Error", str(error))
             return
 
-        if not items:
+        if not names:
             self.status.setText("No artists returned")
             return
 
-        for i, a in enumerate(items, start=1):
-            name = a.get("name", "Unknown")
-            pop = a.get("popularity", "—")
-            genres = ", ".join(a.get("genres", []))
-            self.list.addItem(f"{i}. {name}  (pop {pop})  [{genres}]")
+        for i, name in enumerate(names, start=1):
+            self.list.addItem(f"{i}. {name}")
 
-        self.status.setText(f"Loaded {len(items)} artists")
+        self.status.setText(f"Loaded {len(names)} artists")
 
 
 # ---------- Entry Point ----------

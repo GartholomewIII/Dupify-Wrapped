@@ -7,15 +7,14 @@ from PySide6.QtWidgets import (
     QPushButton, QListWidget, QComboBox, QSpinBox, QMessageBox
 )
 
-# Core modules from src/
 from src.spotify_client import get_spotify_client
-from src.user_data import top_artists  # MUST return List[str], e.g., ["Drake", "Bad Bunny", ...]
+from src.user_data import top_artists, genre_breakdown  # <- both return List[str]
 
 
-# ---------- Workers (off the UI thread) ----------
+# ---------------- Workers ----------------
 
 class LoginWorker(QObject):
-    done = Signal(object, object)  # (sp_or_None, error_or_None)
+    done = Signal(object, object)  # (sp, error)
 
     @Slot()
     def run(self):
@@ -27,39 +26,48 @@ class LoginWorker(QObject):
 
 
 class TopArtistsWorker(QObject):
-    done = Signal(list, object)  # (names: List[str], error: Optional[Exception])
+    done = Signal(list, object)  # (names: List[str], error)
 
-    def __init__(self, sp, time_range: str, limit: int, offset: int = 0):
+    def __init__(self, sp, time_range: str, limit: int):
         super().__init__()
         self.sp = sp
         self.time_range = time_range
         self.limit = limit
-        self.offset = offset
 
     @Slot()
     def run(self):
         try:
-            # EXPECT: top_artists(...) -> List[str]
-            names: List[str] = top_artists(
-                self.sp,
-                limit=self.limit,
-                time_range=self.time_range,
-                offset=self.offset
-            )
-            # Defensive sanitize: ensure list[str]
-            names = [str(n) for n in (names or [])]
+            names: List[str] = top_artists(self.sp, limit=self.limit, time_range=self.time_range)
             self.done.emit(names, None)
         except Exception as e:
             self.done.emit([], e)
 
 
-# ---------- Main Window ----------
+class TopGenresWorker(QObject):
+    done = Signal(list, object)  # (genres: List[str], error)
+
+    def __init__(self, sp, time_range: str, limit: int):
+        super().__init__()
+        self.sp = sp
+        self.time_range = time_range
+        self.limit = limit
+
+    @Slot()
+    def run(self):
+        try:
+            genres: List[str] = genre_breakdown(self.sp, limit=self.limit, time_range=self.time_range)
+            self.done.emit(genres, None)
+        except Exception as e:
+            self.done.emit([], e)
+
+
+# ---------------- Main Window ----------------
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Spotify Companion — Native")
-        self.sp = None  # Spotipy client after login
+        self.sp = None
 
         root = QVBoxLayout(self)
 
@@ -73,8 +81,13 @@ class MainWindow(QWidget):
         row.addWidget(self.btn_login)
         root.addLayout(row)
 
-        # Controls (Top Artists)
+        # Controls
         ctrl = QHBoxLayout()
+
+        ctrl.addWidget(QLabel("View:"))
+        self.cmb_view = QComboBox()
+        self.cmb_view.addItems(["Top Artists", "Top Genres"])
+        ctrl.addWidget(self.cmb_view)
 
         ctrl.addWidget(QLabel("Time Range:"))
         self.cmb_range = QComboBox()
@@ -87,32 +100,41 @@ class MainWindow(QWidget):
         self.spn_limit.setValue(10)
         ctrl.addWidget(self.spn_limit)
 
-        self.btn_fetch = QPushButton("Fetch Top Artists")
+        self.btn_fetch = QPushButton("Fetch")
         self.btn_fetch.setEnabled(False)
-        self.btn_fetch.clicked.connect(self.on_fetch_artists)
+        self.btn_fetch.clicked.connect(self.on_fetch_clicked)
         ctrl.addWidget(self.btn_fetch)
 
         root.addLayout(ctrl)
 
-        # Results list
+        # Results
         self.list = QListWidget()
         root.addWidget(self.list)
 
-    # ---------- Slots & Actions ----------
+        # Keep references to threads/workers (avoid GC issues)
+        self._worker_thread: Optional[QThread] = None
+        self._worker_obj: Optional[QObject] = None
+
+    # -------- Login
 
     def on_login_clicked(self):
-        self.status.setText("Signing in...")
+        self.status.setText("Signing in…")
         self.btn_login.setEnabled(False)
 
-        self.login_thread = QThread(self)
-        self.login_worker = LoginWorker()
-        self.login_worker.moveToThread(self.login_thread)
-        self.login_thread.started.connect(self.login_worker.run)
-        self.login_worker.done.connect(self.on_login_done)
-        self.login_worker.done.connect(self.login_thread.quit)
-        self.login_worker.done.connect(self.login_worker.deleteLater)
-        self.login_thread.finished.connect(self.login_thread.deleteLater)
-        self.login_thread.start()
+        t = QThread(self)
+        w = LoginWorker()
+        w.moveToThread(t)
+
+        t.started.connect(w.run)
+        w.done.connect(self.on_login_done)
+        w.done.connect(t.quit)
+        w.done.connect(w.deleteLater)
+        t.finished.connect(t.deleteLater)
+
+        self._worker_thread = t
+        self._worker_obj = w
+
+        t.start()
 
     @Slot(object, object)
     def on_login_done(self, sp, error):
@@ -128,49 +150,62 @@ class MainWindow(QWidget):
             self.status.setText(f"Signed in as {me.get('display_name')} ({me.get('id')})")
             self.btn_fetch.setEnabled(True)
         except Exception as e:
-            self.status.setText("Login succeeded, profile fetch failed")
-            QMessageBox.warning(self, "Warning", f"Could not fetch profile: {e}")
+            self.status.setText("Login ok, profile fetch failed")
+            QMessageBox.warning(self, "Warning", str(e))
             self.btn_login.setEnabled(True)
 
-    def on_fetch_artists(self):
+    # -------- Fetch
+
+    def on_fetch_clicked(self):
         if not self.sp:
             QMessageBox.information(self, "Not signed in", "Please sign in first.")
             return
 
         self.list.clear()
-        self.status.setText("Loading top artists...")
 
+        view = self.cmb_view.currentText()
         tr = self.cmb_range.currentText()
         lim = int(self.spn_limit.value())
 
-        self.artists_thread = QThread(self)
-        self.artists_worker = TopArtistsWorker(self.sp, time_range=tr, limit=lim)
-        self.artists_worker.moveToThread(self.artists_thread)
-        self.artists_thread.started.connect(self.artists_worker.run)
-        self.artists_worker.done.connect(selfon_artists_done := self.on_artists_done)  # keep reference
-        self.artists_worker.done.connect(self.artists_thread.quit)
-        self.artists_worker.done.connect(self.artists_worker.deleteLater)
-        self.artists_thread.finished.connect(self.artists_thread.deleteLater)
-        self.artists_thread.start()
+        if view == "Top Artists":
+            self.status.setText("Loading top artists…")
+            worker = TopArtistsWorker(self.sp, time_range=tr, limit=lim)
+        else:
+            self.status.setText("Loading top genres…")
+            worker = TopGenresWorker(self.sp, time_range=tr, limit=lim)
+
+        t = QThread(self)
+        worker.moveToThread(t)
+
+        t.started.connect(worker.run)
+        worker.done.connect(self.on_list_done)
+        worker.done.connect(t.quit)
+        worker.done.connect(worker.deleteLater)
+        t.finished.connect(t.deleteLater)
+
+        self._worker_thread = t
+        self._worker_obj = worker
+
+        t.start()
 
     @Slot(list, object)
-    def on_artists_done(self, names: List[str], error: Optional[Exception]):
+    def on_list_done(self, items: List[str], error: Optional[Exception]):
         if error:
-            self.status.setText("Error loading artists")
+            self.status.setText("Error loading data")
             QMessageBox.critical(self, "API Error", str(error))
             return
 
-        if not names:
-            self.status.setText("No artists returned")
+        if not items:
+            self.status.setText("No results")
             return
 
-        for i, name in enumerate(names, start=1):
-            self.list.addItem(f"{i}. {name}")
+        for i, s in enumerate(items, start=1):
+            self.list.addItem(f"{i}. {s}")
 
-        self.status.setText(f"Loaded {len(names)} artists")
+        self.status.setText(f"Loaded {len(items)} items")
 
 
-# ---------- Entry Point ----------
+# ---------------- Entry ----------------
 
 def main():
     app = QApplication(sys.argv)
@@ -178,6 +213,7 @@ def main():
     w.resize(640, 720)
     w.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

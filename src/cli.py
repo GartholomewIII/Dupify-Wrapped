@@ -12,7 +12,7 @@ def main():
 if __name__ == '__main__':
     sp = get_spotify_client()
 
-    # 1) Basic identity call (definitive proof auth worked)
+    #checks everything works
     me = sp.me()
     print(f"✅ Auth OK. Hello {me.get('display_name')} (id={me.get('id')})")
     print(top_artists(sp,limit = 5, time_range = "long_term"))

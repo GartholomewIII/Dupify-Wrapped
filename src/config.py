@@ -11,3 +11,5 @@ SCOPES = os.getenv(
     "SPOTIFY_SCOPES",
     "user-top-read user-read-recently-played user-read-private playlist-read-private"
 )
+
+#------------ GETS THE SPOTIFY API CREDENTIALS ----------

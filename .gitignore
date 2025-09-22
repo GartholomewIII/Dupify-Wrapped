@@ -1,9 +1,30 @@
-.venv
+# Python cache / bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Environment variables / secrets
 .env
+*.key
+*.pem
 
-scratchpad.txt
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
 
-.cache
+# System files
+.DS_Store
+Thumbs.db
 
-.cach_user
+# Qt / build artifacts
+*.qmlc
+*.jsc
+.cache/
+.cache_user

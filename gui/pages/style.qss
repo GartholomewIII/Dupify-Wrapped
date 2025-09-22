@@ -1,0 +1,24 @@
+QPushButton#sign-in-btn{
+    background-color: #000000ff;
+    font-family: 'Gotham';
+    background-color: Black;
+    color: White;
+    border-radius: 15px;
+    font-size: 14px;
+    cursor: pointingHand;
+}
+
+QLabel#title {
+    font-size: 15px;
+    font-family: 'Gotham';
+    color: White;
+}
+
+QLabel#welcome {
+    font-size: 45px;
+    font-family: 'Gotham';
+    font-weight: bold;
+    font-style: italic;
+    color: White; 
+
+}

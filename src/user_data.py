@@ -73,6 +73,46 @@ def genre_breakdown(sp, limit, time_range, offset = 0) -> Dict[str, Any]:
     
     return top_3
 
+def get_photos(sp, artist_names: List[str]):
+    """
+    Given a list of artist names, return a list of image URLs (one per artist).
+    The output list is aligned with the input list.
+
+    Each artist is searched by name; we pick the "best" image available.
+    If an artist has no images, return None in that slot.
+    """
+
+    urls: List[Optional[str]] = []
+
+    for name in artist_names:
+        try:
+            r = sp.search(q=name, type="artist", limit=1)
+            items = r.get("artists", {}).get("items", [])
+            if not items:
+                urls.append(None)
+                continue
+
+            artist = items[0]
+            images = artist.get("images", [])
+
+            # Spotify returns images sorted largest → smallest.
+            # We'll try to pick a ~300px image for consistency.
+            chosen = None
+            for img in images:
+                w = img.get("width") or 0
+                if 200 <= w <= 400:
+                    chosen = img["url"]
+                    break
+
+            if not chosen and images:
+                # fallback: use largest available
+                chosen = images[0]["url"]
+
+            urls.append(chosen)
+        except Exception:
+            urls.append(None)
+
+    return urls
 
 if __name__ == '__main__':
     pass

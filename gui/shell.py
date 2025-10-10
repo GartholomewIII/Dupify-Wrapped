@@ -1,5 +1,11 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QStackedWidget
-from PySide6.QtCore import Slot
+#----------------------------------
+#Author: Quinn (Gigawttz)
+
+#What it does: Sets global variables for the native desktop app (window size, resizing, any fun quirks, etc)
+#----------------------------------
+
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QStackedWidget, QSizePolicy
+from PySide6.QtCore import Slot, QSize
 
 from gui.pages.login_page import LoginPage
 from gui.pages.main_page import MainPage
@@ -15,6 +21,7 @@ class Shell(QWidget):
         self._center_on_screen()
 
         self.stack = QStackedWidget(self)
+        
         self.login_page = LoginPage()
         self.main_page = MainPage()
 
@@ -22,9 +29,12 @@ class Shell(QWidget):
         self.stack.addWidget(self.main_page)   # 1
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0,0,0,0)
+        layout.setSpacing(0)
         layout.addWidget(self.stack)
 
         self.login_page.logged_in.connect(self.on_logged_in)
+
 
     @Slot(object)
 
@@ -42,9 +52,6 @@ class Shell(QWidget):
         self.main_page.set_client(sp)
         self.stack.setCurrentIndex(1)
 
-        '''
-        self.setMinimumSize(800, 600)
-        self.setMaximumSize(16777215, 16777215)  # removes previous fixed bound
-        self.resize(1000, 800)
-        '''
-        self.showFullScreen()
+        self.setMinimumSize(QSize(0, 0))
+        self.setMaximumSize(QSize(999999,999999))
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

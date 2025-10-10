@@ -5,7 +5,7 @@ QPushButton#sign-in-btn{
     color: White;
     border-radius: 15px;
     font-size: 14px;
-    cursor: pointingHand;
+
 }
 
 QLabel#title {
@@ -20,5 +20,37 @@ QLabel#welcome {
     font-weight: bold;
     font-style: italic;
     color: White; 
+
+}
+
+
+QLabel#main-pg-header {
+    font-size: 20px;
+    font-family: 'Gotham';
+    font-weight: bold;
+    color: White;
+}
+
+QComboBox#mode, QComboBox#time-length, QSpinBox#num-lim, QPushButton#fetch-btn{
+    font-size: 10px;
+    font-family: 'Gotham';
+    font-weight: bold;
+    color: White;
+    font-style: italic;
+}
+
+QLabel#view-label, QLabel#time-label, QLabel#limit-label{
+    font-family: 'Gotham';
+}
+
+QScrollArea QWidget {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+}
+
+QScrollArea {
+    background-color: rgba(0, 0, 0, 0.42);
+    border-radius: 8px;
 
 }

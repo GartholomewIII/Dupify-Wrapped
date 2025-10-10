@@ -1,4 +1,8 @@
+#-------------------------------------
+#Author: Quinn Olney
 
+#What it does: Entry point for app
+#-------------------------------------
 import os, sys, threading
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
@@ -37,11 +41,15 @@ def main():
     app.setStyleSheet(_load_stylesheet())
     w = Shell()
     w.resize(700, 800)
+    app.setStyleSheet(_load_stylesheet())
     w.show()
     sys.exit(app.exec())
 
 if __name__ == "__main__":
     # Only enable during dev; disable with APP_AUTORELOAD=0
+    '''
     if os.environ.get("APP_AUTORELOAD", "1") == "1":
         start_dev_reloader()
+
+    '''
     main()

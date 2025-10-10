@@ -1,3 +1,10 @@
+#------------------------------------------------
+#Author: Quinn (Gigawttz)
+
+#What this does: it autoreloads a file you put into your FILES_TO_WATCH const variable
+#really helpful for styling pyside6 GUI because typically you need to reboot manually
+#------------------------------------------------
+
 import os, sys, threading
 import time
 from pathlib import Path
@@ -10,6 +17,8 @@ except ImportError:
 
 APP_DIR = Path(__file__).resolve().parents[1]  
 PAGES_DIR = APP_DIR / "pages"
+
+
 
 FILES_TO_WATCH = [
     PAGES_DIR / "login_page.py",

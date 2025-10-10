@@ -1,5 +1,4 @@
-from typing import Literal, Dict, Any, List
-import pandas as pd
+from typing import Literal, Dict, Any, List, Optional
 from collections import Counter
 
 
@@ -13,8 +12,40 @@ def get_user_profile(sp: "spotipy.Spotify") -> Dict[str, Any]:
         "country": me.get("country")
     }
 
-def top_tracks(sp: "spotipy.Spotify") -> Dict[str,Any]:
-    pass
+def top_tracks_map(sp, limit: int, time_range: str) -> Dict[str, str]:
+
+    raw = sp.current_user_top_tracks(limit=limit, time_range=time_range)
+    out: Dict[str, str] = {}
+    for t in raw.get("items", []):
+        track = t.get("name") or "Unknown"
+        artists = [a.get("name") for a in t.get("artists", []) if a.get("name")]
+        artist = " & ".join(artists) if artists else "Unknown"
+        if artist not in out:  # avoid overwriting if same artist appears multiple times
+            out[artist] = track
+    return out
+
+def top_tracks_items(sp, limit: int, time_range: str) -> List[Dict[str, Optional[str]]]:
+    raw = sp.current_user_top_tracks(limit=limit, time_range=time_range)
+    items: List[Dict[str, Optional[str]]] = []
+
+    for t in raw.get("items", []):
+        track = t.get("name") or "Unknown"
+        artists = [a.get("name") for a in t.get("artists", []) if a.get("name")]
+        artist = " & ".join(artists) if artists else "Unknown"
+        images = (t.get("album") or {}).get("images", [])
+        url = None
+
+        for img in images:
+            if img.get("height") == img.get("width"):
+                url = img.get("url")
+                break
+        if not url and images:
+            url = images[0].get("url")
+        #returns a list of dicts with len of 3
+        items.append({"artist": artist, "track": track, "image_url": url})
+    return items
+
+    
 
 
 #returns a list of the users most listened to artists
@@ -28,11 +59,25 @@ def top_artists(sp, limit, time_range , offset=0) -> Dict[str, Any]:
         artists.append(i['name'])
 
     return artists
-    
+
+#fetches top artists and their respective info (name, id #, images, genres, popularity)
+def _top_artist_data(sp, limit, time_range, offset= 0):
+    raw_data = sp.current_user_top_artists(limit= limit, offset= offset, time_range= time_range)
+    artists = []
+
+    for item in raw_data["items"]:
+        artists.append({
+            "id": item['id'],
+            "name": item['name'],
+            'images': item.get('images', []),
+            'genres': item.get('genres', []),
+            'popularity': item.get('popularity', None)
+            })
+    return artists
     
 #returns a list of top 3 genres with a weighted algorithm 
 def genre_breakdown(sp, limit, time_range, offset = 0) -> Dict[str, Any]:
-    raw_data = sp.current_user_top_artists(limit= limit, offset= offset, time_range= time_range)
+    raw_data = sp.current_user_top_artists(20, offset= offset, time_range= time_range)
     
     genres= []
     artists_ranked = []
@@ -73,46 +118,173 @@ def genre_breakdown(sp, limit, time_range, offset = 0) -> Dict[str, Any]:
     
     return top_3
 
-def get_photos(sp, artist_names: List[str]):
-    """
-    Given a list of artist names, return a list of image URLs (one per artist).
-    The output list is aligned with the input list.
+def get_photos(sp, limit, time_range, offset = 0 ):
+    artist_data = _top_artist_data(sp= sp, limit= limit, time_range= time_range)
 
-    Each artist is searched by name; we pick the "best" image available.
-    If an artist has no images, return None in that slot.
-    """
+    urls = []
+    for artist in artist_data:
+        chosen = None
+        images = artist.get("images", [])
 
-    urls: List[Optional[str]] = []
+        for img in images:
+            if img.get("height") == img.get("width"):
+                chosen = img["url"]
+                break
 
-    for name in artist_names:
-        try:
-            r = sp.search(q=name, type="artist", limit=1)
-            items = r.get("artists", {}).get("items", [])
-            if not items:
-                urls.append(None)
-                continue
+        if not chosen and images:
+            chosen = images[0]["url"]
 
-            artist = items[0]
-            images = artist.get("images", [])
-
-            # Spotify returns images sorted largest → smallest.
-            # We'll try to pick a ~300px image for consistency.
-            chosen = None
-            for img in images:
-                w = img.get("width") or 0
-                if 200 <= w <= 400:
-                    chosen = img["url"]
-                    break
-
-            if not chosen and images:
-                # fallback: use largest available
-                chosen = images[0]["url"]
-
-            urls.append(chosen)
-        except Exception:
-            urls.append(None)
-
+        urls.append(chosen or None)
     return urls
+
+def _normalize_genre_text(s):
+    return (s or "").lower().replace("-", " ").replace("&", "and").strip()
+
+
+def _fetch_browse_categories(sp):
+    categories = []
+    offset = 0
+    while True:
+        r = sp.categories(limit=50, offset=offset, country="US")
+        items = r.get("categories", {}).get("items", [])
+        if not items:
+            break
+        for it in items:
+            icons = it.get("icons") or []
+            if icons:
+                categories.append({"name": it.get("name"), "image_url": icons[0].get("url")})
+        if len(items) < 50:
+            break
+        offset += 50
+    return categories
+
+
+_CATEGORY_KEYWORDS = {
+    "rap": "Hip-Hop",
+    "drill": "Hip-Hop",
+    "trap": "Hip-Hop",
+    "pluggnb": "Hip-Hop",
+    "plug": "Hip-Hop",
+    "hip": "Hip-Hop",
+    "hop": "Hip-Hop",
+    "rnb": "R&B",
+    "r&b": "R&B",
+    "soul": "R&B",
+    "pop": "Pop",
+    "hyperpop": "Pop",
+    "indie": "Indie",
+    "alt": "Indie",
+    "rock": "Rock",
+    "metal": "Metal",
+    "country": "Country",
+    "jazz": "Jazz",
+    "blues": "Blues",
+    "edm": "Dance/Electronic",
+    "dance": "Dance/Electronic",
+    "electronic": "Dance/Electronic",
+    "house": "Dance/Electronic",
+    "techno": "Dance/Electronic",
+    "trance": "Dance/Electronic",
+    "kpop": "K-Pop",
+    "latin": "Latin",
+    "reggaeton": "Latin",
+    "classical": "Classical",
+    "folk": "Folk & Acoustic",
+    "reggae": "Reggae",
+}
+
+
+def _best_category_image(genre, categories):
+    import difflib
+    g = _normalize_genre_text(genre)
+    tokens = g.split()
+
+    
+    target = None
+    for t in tokens:
+        if t in _CATEGORY_KEYWORDS:
+            target = _CATEGORY_KEYWORDS[t]
+            break
+    if target:
+        tnorm = _normalize_genre_text(target)
+        for c in categories:
+            if _normalize_genre_text(c["name"]) == tnorm:
+                return c["image_url"]
+        # fall back to fuzzy against the target label
+        best = None
+        best_score = 0.0
+        for c in categories:
+            score = difflib.SequenceMatcher(None, tnorm, _normalize_genre_text(c["name"])).ratio()
+            if score > best_score:
+                best_score, best = score, c["image_url"]
+        if best:
+            return best
+
+    # 2) fuzzy match the original genre to category names
+    best = None
+    best_score = 0.0
+    for c in categories:
+        score = difflib.SequenceMatcher(None, g, _normalize_genre_text(c["name"])).ratio()
+        if score > best_score:
+            best_score, best = score, c["image_url"]
+    return best if best_score >= 0.5 else None  # slightly lower threshold
+
+
+def _representative_artist_images_for_genre(sp, genre, time_range):
+    g = _normalize_genre_text(genre)
+    gtokens = set(g.split())
+    items = sp.current_user_top_artists(limit=50, time_range=time_range).get("items", [])
+
+    def pick_image(artist):
+        images = artist.get("images") or []
+        for img in images:
+            if img.get("height") == img.get("width"):
+                return img.get("url")
+        if images:
+            return images[0].get("url")
+        return None
+
+    candidates = []
+    for a in items:
+        genres = [_normalize_genre_text(x) for x in (a.get("genres") or [])]
+        if g in genres:
+            url = pick_image(a)
+            if url:
+                candidates.append(url)
+    if not candidates:
+        for a in items:
+            genres_joined = " ".join(_normalize_genre_text(x) for x in (a.get("genres") or []))
+            if gtokens & set(genres_joined.split()):
+                url = pick_image(a)
+                if url:
+                    candidates.append(url)
+    if not candidates:
+        for a in items:
+            url = pick_image(a)
+            if url:
+                candidates.append(url)
+    return candidates
+
+
+def get_genre_banners(sp, time_range="medium_term", limit=3):
+    top3 = genre_breakdown(sp, limit=limit, time_range=time_range)
+    cats = _fetch_browse_categories(sp)
+    out = []
+    seen = set()
+    for g in top3[:limit]:
+        url = None
+        for cand in _representative_artist_images_for_genre(sp, g, time_range):
+            if cand not in seen:
+                url = cand
+                break
+        if not url:
+            url = _best_category_image(g, cats)
+        if url:
+            seen.add(url)
+        out.append({"genre": g, "image_url": url})
+        
+    return out
+
 
 if __name__ == '__main__':
     pass

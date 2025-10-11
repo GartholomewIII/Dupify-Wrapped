@@ -1,3 +1,9 @@
+#------------------------------------
+#Author: Quinn (Gigawttz)
+
+#What it Does: Login page for the application, first checkpoint for the spotify API
+#Connects the auth methods to the main PySide Desktop App
+#------------------------------------
 from typing import Optional
 from PySide6.QtCore import Signal, Slot, QThread
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QMessageBox, QStackedLayout

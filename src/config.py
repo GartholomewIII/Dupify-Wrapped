@@ -1,3 +1,8 @@
+'''
+Author: Quinn (Gigawttz)
+
+What it Does: Loads .env file
+'''
 import os
 from dotenv import load_dotenv
 

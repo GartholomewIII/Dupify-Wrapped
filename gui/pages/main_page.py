@@ -1,4 +1,11 @@
-# gui/pages/main_page.py
+#------------------------------------
+#Author: Quinn (Gigawttz)
+
+#What it Does: Main page that is launched after sign in
+#Displays user spotify data
+#------------------------------------
+
+
 from typing import Optional, List, Dict
 from PySide6.QtCore import Slot, QThread, Qt, QUrl, QRectF
 from PySide6.QtWidgets import (

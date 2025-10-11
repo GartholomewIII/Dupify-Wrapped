@@ -1,3 +1,12 @@
+'''
+Author: Quinn (Gigawttz)
+
+What it Does: Calls the Spotify API methods and retrieves user data that is going to be processed and displayed in the gui/ directory
+'''
+'''
+TO DO: CLEAN UP UNUSED FUNCTIONS
+'''
+
 from typing import Literal, Dict, Any, List, Optional
 from collections import Counter
 

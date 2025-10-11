@@ -1,8 +1,9 @@
-#--------------------
+#--------------------------------
+#Author: Quinn (Gigawttz)
 
-
-
-
+#What it Does: Holds worker functions that connect the src directory
+#to the frontend directory
+#--------------------------------
 
 from typing import List, Optional
 from PySide6.QtCore import QObject, QThread, Signal, Slot

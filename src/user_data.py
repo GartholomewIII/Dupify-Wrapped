@@ -7,8 +7,18 @@ What it Does: Calls the Spotify API methods and retrieves user data that is goin
 TO DO: CLEAN UP UNUSED FUNCTIONS
 '''
 
-from typing import Literal, Dict, Any, List, Optional
+from typing import Literal, Dict, Any, List, Optional, Union
 from collections import Counter
+from .spotify_client import get_spotify_client
+import random
+import json
+
+from pathlib import Path
+
+GENRE_MAP_PATH = Path(__file__).parent / "data" / "genre_norm.json"
+
+with GENRE_MAP_PATH.open(encoding="utf-8") as f:
+    _CATEGORY_KEYWORDS = json.load(f)
 
 
 #returns key value pair of users profile info
@@ -167,7 +177,7 @@ def _fetch_browse_categories(sp):
         offset += 50
     return categories
 
-
+'''
 _CATEGORY_KEYWORDS = {
     "rap": "Hip-Hop",
     "drill": "Hip-Hop",
@@ -201,7 +211,7 @@ _CATEGORY_KEYWORDS = {
     "folk": "Folk & Acoustic",
     "reggae": "Reggae",
 }
-
+'''
 
 def _best_category_image(genre, categories):
     import difflib
@@ -294,6 +304,59 @@ def get_genre_banners(sp, time_range="medium_term", limit=3):
         
     return out
 
+def get_top_genre_artists(sp, genre, total: int = 100) -> List[Dict[str, Any]]:
+    """
+    Returns up to `total` artist objects for a given genre,
+    sorted by artist popularity (desc).
+    """
+    q = f'genre:"{_CATEGORY_KEYWORDS[genre]}"'            # quotes handle spaces in genre
+    limit = 50                        # Spotify Search max per page = 50
+    collected: List[Dict[str, Any]] = []
 
+    # page through search results until we hit `total` or run out
+    for offset in range(0, total, limit):
+        res = sp.search(q=q, type="artist", limit=min(limit, total - offset), offset=offset)
+        items = (res.get("artists", {}) or {}).get("items", []) or []
+        if not items:
+            break
+        collected.extend(items)
+
+        # if fewer than requested came back, no more pages
+        if len(items) < min(limit, total - offset):
+            break
+
+    # de-dupe by id
+    by_id = {}
+    for a in collected:
+        aid = a.get("id")
+        if aid and aid not in by_id:
+            by_id[aid] = a
+
+    # rank by popularity (0–100; higher = more popular)
+    ranked = sorted(by_id.values(), key=lambda a: a.get("popularity", 0), reverse=True)
+    
+    top_100_artist = []
+
+    for i in ranked[:total]:
+        top_100_artist.append(i['name'])
+
+    return top_100_artist
+
+'''
+def get_artist_rec(sp, time_range= "long_term", limit= 20):
+    top_3 = genre_breakdown(sp, time_range= time_range, limit= limit)
+
+    seen_artists= []
+    for i in top_3:
+        #fetch top 100 artists in genre
+        artists = pass
+
+        artist= random.choice(artists)
+        
+        if artist not in seen_artist
+
+'''
 if __name__ == '__main__':
-    pass
+    sp = get_spotify_client()
+
+    print(get_top_genre_artists(sp, genre= 'pop'))

@@ -20,4 +20,7 @@ def get_spotify_client(cache_path: str = '.cache') -> spotipy.Spotify:
     )
     return spotipy.Spotify(auth_manager=auth_manager)
 
+
+
+
 #------------- MAKES THE API CALL -------------

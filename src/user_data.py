@@ -177,42 +177,6 @@ def _fetch_browse_categories(sp):
         offset += 50
     return categories
 
-'''
-_CATEGORY_KEYWORDS = {
-    "rap": "Hip-Hop",
-    "drill": "Hip-Hop",
-    "trap": "Hip-Hop",
-    "pluggnb": "Hip-Hop",
-    "plug": "Hip-Hop",
-    "hip": "Hip-Hop",
-    "hop": "Hip-Hop",
-    "rnb": "R&B",
-    "r&b": "R&B",
-    "soul": "R&B",
-    "pop": "Pop",
-    "hyperpop": "Pop",
-    "indie": "Indie",
-    "alt": "Indie",
-    "rock": "Rock",
-    "metal": "Metal",
-    "country": "Country",
-    "jazz": "Jazz",
-    "blues": "Blues",
-    "edm": "Dance/Electronic",
-    "dance": "Dance/Electronic",
-    "electronic": "Dance/Electronic",
-    "house": "Dance/Electronic",
-    "techno": "Dance/Electronic",
-    "trance": "Dance/Electronic",
-    "kpop": "K-Pop",
-    "latin": "Latin",
-    "reggaeton": "Latin",
-    "classical": "Classical",
-    "folk": "Folk & Acoustic",
-    "reggae": "Reggae",
-}
-'''
-
 def _best_category_image(genre, categories):
     import difflib
     g = _normalize_genre_text(genre)
@@ -304,59 +268,93 @@ def get_genre_banners(sp, time_range="medium_term", limit=3):
         
     return out
 
-def get_top_genre_artists(sp, genre, total: int = 100) -> List[Dict[str, Any]]:
-    """
-    Returns up to `total` artist objects for a given genre,
-    sorted by artist popularity (desc).
-    """
-    q = f'genre:"{_CATEGORY_KEYWORDS[genre]}"'            # quotes handle spaces in genre
-    limit = 50                        # Spotify Search max per page = 50
-    collected: List[Dict[str, Any]] = []
+def get_recent_artists(sp, limit):
+    recent_tracks= sp.current_user_recently_played(limit= limit)
 
-    # page through search results until we hit `total` or run out
-    for offset in range(0, total, limit):
-        res = sp.search(q=q, type="artist", limit=min(limit, total - offset), offset=offset)
-        items = (res.get("artists", {}) or {}).get("items", []) or []
-        if not items:
-            break
-        collected.extend(items)
-
-        # if fewer than requested came back, no more pages
-        if len(items) < min(limit, total - offset):
-            break
-
-    # de-dupe by id
-    by_id = {}
-    for a in collected:
-        aid = a.get("id")
-        if aid and aid not in by_id:
-            by_id[aid] = a
-
-    # rank by popularity (0–100; higher = more popular)
-    ranked = sorted(by_id.values(), key=lambda a: a.get("popularity", 0), reverse=True)
     
-    top_100_artist = []
+    
+    artists= []
 
-    for i in ranked[:total]:
-        top_100_artist.append(i['name'])
+    for item in recent_tracks.get("items", []):
+        track = item.get("track") or {}
+        names = [a.get("name") for a in (track.get("artists") or []) if a.get("name")]
+        if names:
+            artists.append(names)
+    #because of features, lists can be nested
+    clean_arr = []
+    for i in artists:
+        for j in i:
+            clean_arr.append(j)
 
-    return top_100_artist
+    return set(clean_arr) #removes duplicates
+    
 
-'''
-def get_artist_rec(sp, time_range= "long_term", limit= 20):
-    top_3 = genre_breakdown(sp, time_range= time_range, limit= limit)
 
-    seen_artists= []
-    for i in top_3:
-        #fetch top 100 artists in genre
-        artists = pass
+def get_artist_by_genre(sp, genre, limit, offset, popularity):
+    '''
+    popularity
+    low= 0-33
+    med= 33-66
+    high= 66-100
+    '''
 
-        artist= random.choice(artists)
+    res = sp.search(
+            q=str(genre),
+            type="artist",
+            limit= limit,
+            offset=offset,
+            market= "USA",
+        )
+
+    items = res.get('artists')
+    artists = []
+    for i in items['items']:
+        pop = i.get('popularity', 0)
+
+        if popularity == 'low' and (pop>= 0 and pop< 33):
+            artists.append(i['name'])
+
+        elif popularity == 'med' and (pop>= 33 and pop< 66):
+            artists.append(i['name'])
         
-        if artist not in seen_artist
+        elif popularity == 'high' and (pop>= 66):
 
-'''
+            artists.append(i['name'])
+    
+    return artists
+
+
+def get_artist_rec(sp, genre, num_of_artists, popularity):
+
+    recent_listened = get_recent_artists(sp, limit= 50) #returns arr of listened to artists
+    
+
+    rec_tracks = []
+
+    offset_num = 50
+
+    while len(rec_tracks) < num_of_artists:
+        artist_by_genre = get_artist_by_genre(sp, genre= genre, limit= 10, offset= offset_num, popularity= popularity) #set limit to 10 to avoid heavy compute strain
+        for i in artist_by_genre:
+            if len(rec_tracks) == num_of_artists:
+                return rec_tracks
+            elif i not in recent_listened:
+                rec_tracks.append(i)
+            
+        
+
+        offset_num += 10
+
+
+def reccomend_tracks_by_artist(sp, artists):
+    pass
+    
+
+
+
 if __name__ == '__main__':
     sp = get_spotify_client()
 
-    print(get_top_genre_artists(sp, genre= 'pop'))
+    print(get_artist_rec(sp, 'rage rap', 5, 'high'))
+    
+    

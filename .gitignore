@@ -28,3 +28,4 @@ Thumbs.db
 *.jsc
 .cache/
 .cache_user
+.cache 

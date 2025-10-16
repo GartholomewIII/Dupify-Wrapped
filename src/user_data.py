@@ -290,42 +290,66 @@ def get_recent_artists(sp, limit):
     
 
 
-def get_artist_by_genre(sp, genre, limit, offset, popularity):
+def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
     '''
     popularity
-    low= 0-33
-    med= 33-66
-    high= 66-100
+    low= 0-25
+    med= 25-50
+    high= 50-100
     '''
 
-    res = sp.search(
+
+    if popularity == 'high':
+        offset= 0
+    elif popularity == 'med':
+        offset= 100
+    else:
+        offset= 350
+
+    artists = []
+
+    while len(artists) < limit:
+
+
+
+
+        res = sp.search(
             q=str(genre),
             type="artist",
             limit= limit,
             offset=offset,
-            market= "USA",
+            market= "US",
         )
-
-    items = res.get('artists')
-    artists = []
-    for i in items['items']:
-        pop = i.get('popularity', 0)
-
-        if popularity == 'low' and (pop>= 0 and pop< 33):
-            artists.append(i['name'])
-
-        elif popularity == 'med' and (pop>= 33 and pop< 66):
-            artists.append(i['name'])
+        items = res.get('artists')
         
-        elif popularity == 'high' and (pop>= 66):
 
-            artists.append(i['name'])
+
+
+        for i in items['items']:
+            pop = i.get('popularity', 0)
+            if len(artists) < limit:
+                if popularity == 'low' and (pop>= 0 and pop< 25):
+                    artists.append(i['name'])
+
+                elif popularity == 'med' and (pop>= 25 and pop< 50):
+                    artists.append(i['name'])
+                
+                elif popularity == 'high' and (pop>= 50):
+
+                    artists.append(i['name'])
+        offset+= 10
     
     return artists
 
 
 def get_artist_rec(sp, genre, num_of_artists, popularity):
-
+    '''
+    Limit calls of artists to MAX 5, lot of nested loops
+    
+    returns an arr of artist recs
+    
+    TO DO: IMPLIMENT A RANDOMIZER FUNCTION
+    '''
     recent_listened = get_recent_artists(sp, limit= 50) #returns arr of listened to artists
     
 
@@ -346,15 +370,68 @@ def get_artist_rec(sp, genre, num_of_artists, popularity):
         offset_num += 10
 
 
-def reccomend_tracks_by_artist(sp, artists):
-    pass
-    
+def track_and_artist(sp, artists):
+    # {'place': 'missoula}
+    artist_track = {}
+
+    for i in artists:
+        artist_track[i] = []
+
+    offset= 0
+
+    for i in range(len(artists)):
+        artist_data= sp.search(
+            q= str(artists[i]),
+            type= 'track',
+            limit= 3,
+            offset= offset,
+            market= 'US'
+        )
+
+        temp = []
+        while len(temp) != 3:
+            
+            for k in range(3):
+                if len(temp) == 3:
+                    break
+                elif artist_data['tracks']['items'][k]['artists'][0]['name'] == artists[i]:
+                    temp.append(artist_data['tracks']['items'][k]['name'])
+                else:
+                    continue
+            if len(temp) != 3:
+                offset+= 3
+                artist_data= sp.search(
+                    q= str(artists[i]),
+                    type= 'track',
+                    limit= 3,
+                    offset= offset,
+                    market= 'US'
+                )
+
+        artist_track[artists[i]] = temp
+        offset= 0
+
+    return artist_track 
+
+
 
 
 
 if __name__ == '__main__':
     sp = get_spotify_client()
 
-    print(get_artist_rec(sp, 'rage rap', 5, 'high'))
-    
-    
+    #artist_by_genre = get_artist_by_genre(sp, genre= 'jazz rap', limit= 10, popularity= 'low')
+    #print(artist_by_genre)
+    artists= get_artist_rec(sp, genre= 'rage rap',num_of_artists= 5, popularity= 'med')
+    print(track_and_artist(sp, artists= artists))
+    '''
+    for artist in artist_by_genre:
+        print(sp.search(
+            q= str(artist),
+            type= 'track',
+            limit= 3,
+            offset= 0,
+            market= 'USA'
+        ))
+
+    '''

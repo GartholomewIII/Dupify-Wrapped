@@ -300,11 +300,11 @@ def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
 
 
     if popularity == 'high':
-        offset= 0
+        offset= random.randrange(0, 40)
     elif popularity == 'med':
-        offset= 100
+        offset= random.randrange(100, 190)
     else:
-        offset= 350
+        offset= random.randrange(400, 480)
 
     artists = []
 
@@ -394,10 +394,12 @@ def track_and_artist(sp, artists):
             for k in range(3):
                 if len(temp) == 3:
                     break
-                elif artist_data['tracks']['items'][k]['artists'][0]['name'] == artists[i]:
-                    temp.append(artist_data['tracks']['items'][k]['name'])
-                else:
+                try:
+                    if artist_data['tracks']['items'][k]['artists'][0]['name'] == artists[i]:
+                        temp.append(artist_data['tracks']['items'][k]['name'])
+                except IndexError:
                     continue
+                
             if len(temp) != 3:
                 offset+= 3
                 artist_data= sp.search(
@@ -413,7 +415,8 @@ def track_and_artist(sp, artists):
 
     return artist_track 
 
-
+def get_track_photos(sp, artists_songs):
+    pass
 
 
 
@@ -422,16 +425,11 @@ if __name__ == '__main__':
 
     #artist_by_genre = get_artist_by_genre(sp, genre= 'jazz rap', limit= 10, popularity= 'low')
     #print(artist_by_genre)
-    artists= get_artist_rec(sp, genre= 'rage rap',num_of_artists= 5, popularity= 'med')
-    print(track_and_artist(sp, artists= artists))
-    '''
-    for artist in artist_by_genre:
-        print(sp.search(
-            q= str(artist),
-            type= 'track',
-            limit= 3,
-            offset= 0,
-            market= 'USA'
-        ))
+    genres = genre_breakdown(sp,time_range= 'long_term', limit= 20)
 
-    '''
+    for genre in genres:
+        
+        artists= get_artist_rec(sp, genre= genre,num_of_artists= 5, popularity= 'high')
+        print(track_and_artist(sp, artists= artists))
+    
+    

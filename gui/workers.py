@@ -9,7 +9,12 @@ from typing import List, Optional
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 from src.spotify_client import get_spotify_client
-from src.user_data import top_artists, genre_breakdown, get_photos, get_genre_banners, top_tracks_items, top_tracks_map
+
+from src.methods.top_artist import top_artists
+from src.methods.top_genre import genre_breakdown, get_photos, get_genre_banners
+from src.methods.top_tracks import top_tracks_items, top_tracks_map
+
+
 
 
 class LoginWorker(QObject):

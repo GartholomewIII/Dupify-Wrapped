@@ -1,0 +1,187 @@
+from typing import Literal, Dict, Any, List, Optional, Union
+from collections import Counter
+
+import random
+import json
+
+from pathlib import Path
+
+
+
+GENRE_MAP_PATH = Path(__file__).parent.parent / "data" / "genre_norm.json"
+
+with GENRE_MAP_PATH.open(encoding="utf-8") as f:
+    _CATEGORY_KEYWORDS = json.load(f)
+
+def genre_breakdown(sp, limit, time_range, offset = 0) -> Dict[str, Any]:
+    raw_data = sp.current_user_top_artists(20, offset= offset, time_range= time_range)
+    
+    genres= []
+    artists_ranked = []
+
+
+    for i in raw_data['items']:
+        genres.append(i['genres'])
+    for i in raw_data['items']:
+        artists_ranked.append(i['name'])
+    artists_ranked = list(enumerate(artists_ranked))
+    
+    #item with genre and weight {cloud_rap: 15} 
+    #based off top 20 artist, top artist == 20 and it descends
+
+    weighted_genres = {}
+    weight = 20
+    for items in range(len(genres)):
+        for i in range(len(genres[items])): #iterates through each genre for each top artist
+            if genres[items][i] not in weighted_genres:
+
+                weighted_genres[genres[items][i]] = weight - items
+            
+            else:
+                weighted_genres[genres[items][i]] += weight - items
+    
+    sorted_dict = {}
+    for w in sorted(weighted_genres, key=weighted_genres.get, reverse=True):
+        sorted_dict[w] = weighted_genres[w]
+
+    top_3 = []
+    counter = 0
+    for keys in sorted_dict:
+        top_3.append(keys)
+        counter += 1 
+
+        if counter == 3:
+            break
+    
+    return top_3
+
+def get_photos(sp, limit, time_range, offset = 0 ):
+    artist_data = _top_artist_data(sp= sp, limit= limit, time_range= time_range)
+
+    urls = []
+    for artist in artist_data:
+        chosen = None
+        images = artist.get("images", [])
+
+        for img in images:
+            if img.get("height") == img.get("width"):
+                chosen = img["url"]
+                break
+
+        if not chosen and images:
+            chosen = images[0]["url"]
+
+        urls.append(chosen or None)
+    return urls
+
+def _normalize_genre_text(s):
+    return (s or "").lower().replace("-", " ").replace("&", "and").strip()
+
+
+def _fetch_browse_categories(sp):
+    categories = []
+    offset = 0
+    while True:
+        r = sp.categories(limit=50, offset=offset, country="US")
+        items = r.get("categories", {}).get("items", [])
+        if not items:
+            break
+        for it in items:
+            icons = it.get("icons") or []
+            if icons:
+                categories.append({"name": it.get("name"), "image_url": icons[0].get("url")})
+        if len(items) < 50:
+            break
+        offset += 50
+    return categories
+
+def _best_category_image(genre, categories):
+    import difflib
+    g = _normalize_genre_text(genre)
+    tokens = g.split()
+
+    
+    target = None
+    for t in tokens:
+        if t in _CATEGORY_KEYWORDS:
+            target = _CATEGORY_KEYWORDS[t]
+            break
+    if target:
+        tnorm = _normalize_genre_text(target)
+        for c in categories:
+            if _normalize_genre_text(c["name"]) == tnorm:
+                return c["image_url"]
+        # fall back to fuzzy against the target label
+        best = None
+        best_score = 0.0
+        for c in categories:
+            score = difflib.SequenceMatcher(None, tnorm, _normalize_genre_text(c["name"])).ratio()
+            if score > best_score:
+                best_score, best = score, c["image_url"]
+        if best:
+            return best
+
+    # 2) fuzzy match the original genre to category names
+    best = None
+    best_score = 0.0
+    for c in categories:
+        score = difflib.SequenceMatcher(None, g, _normalize_genre_text(c["name"])).ratio()
+        if score > best_score:
+            best_score, best = score, c["image_url"]
+    return best if best_score >= 0.5 else None  # slightly lower threshold
+
+
+def _representative_artist_images_for_genre(sp, genre, time_range):
+    g = _normalize_genre_text(genre)
+    gtokens = set(g.split())
+    items = sp.current_user_top_artists(limit=50, time_range=time_range).get("items", [])
+
+    def pick_image(artist):
+        images = artist.get("images") or []
+        for img in images:
+            if img.get("height") == img.get("width"):
+                return img.get("url")
+        if images:
+            return images[0].get("url")
+        return None
+
+    candidates = []
+    for a in items:
+        genres = [_normalize_genre_text(x) for x in (a.get("genres") or [])]
+        if g in genres:
+            url = pick_image(a)
+            if url:
+                candidates.append(url)
+    if not candidates:
+        for a in items:
+            genres_joined = " ".join(_normalize_genre_text(x) for x in (a.get("genres") or []))
+            if gtokens & set(genres_joined.split()):
+                url = pick_image(a)
+                if url:
+                    candidates.append(url)
+    if not candidates:
+        for a in items:
+            url = pick_image(a)
+            if url:
+                candidates.append(url)
+    return candidates
+
+
+def get_genre_banners(sp, time_range="medium_term", limit=3):
+    top3 = genre_breakdown(sp, limit=limit, time_range=time_range)
+    cats = _fetch_browse_categories(sp)
+    out = []
+    seen = set()
+    for g in top3[:limit]:
+        url = None
+        for cand in _representative_artist_images_for_genre(sp, g, time_range):
+            if cand not in seen:
+                url = cand
+                break
+        if not url:
+            url = _best_category_image(g, cats)
+        if url:
+            seen.add(url)
+        out.append({"genre": g, "image_url": url})
+        
+    return out

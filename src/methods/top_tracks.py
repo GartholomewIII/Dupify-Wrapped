@@ -37,4 +37,6 @@ def top_tracks_items(sp, limit: int, time_range: str) -> List[Dict[str, Optional
             url = images[0].get("url")
         #returns a list of dicts with len of 3
         items.append({"artist": artist, "track": track, "image_url": url})
+
+        print(items)
     return items

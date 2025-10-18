@@ -1,6 +1,6 @@
 from typing import Literal, Dict, Any, List, Optional, Union
 from collections import Counter
-
+from .top_artist import _top_artist_data
 import random
 import json
 

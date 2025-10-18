@@ -23,7 +23,7 @@ class LoginWorker(QObject):
     @Slot()
     def run(self):
         try:
-            sp = get_spotify_client(cache_path=".cache_user")
+            sp = get_spotify_client()
             self.done.emit(sp, None)
         except Exception as e:
             self.done.emit(None, e)

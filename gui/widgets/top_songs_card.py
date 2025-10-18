@@ -15,6 +15,7 @@ class TrackCard(QWidget):
     def __init__(self, artist: str, track: str, image_url: Optional[str], size: int = 160, parent=None):
         super().__init__(parent)
         self._nam = QNetworkAccessManager(self)
+        self._orig_pix: Optional[QPixmap] = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -43,8 +44,18 @@ class TrackCard(QWidget):
         img = QImage.fromData(bytes(data))
         if img.isNull():
             return
-        pix = QPixmap.fromImage(img).scaled(
-            self.img.width(), self.img.height(),
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
-        self.img.setPixmap(pix)
+        self._orig_pix = QPixmap.fromImage(img)
+        self._rescale()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._rescale()
+
+    def _rescale(self):
+        if not self._orig_pix:
+            return
+        w = max(1, self.img.width())
+        h = max(1, self.img.height())
+
+        scaled = self._orig_pix.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        self.img.setPixmap(scaled)

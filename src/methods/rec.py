@@ -3,9 +3,9 @@ from collections import Counter
 
 import random
 import json
-
+from src.spotify_client import get_spotify_client
 from pathlib import Path
-
+from .top_genre import genre_breakdown
 
 
 def get_recent_artists(sp, limit):
@@ -78,6 +78,9 @@ def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
 
                     artists.append(i['name'])
         offset+= 10
+
+        if offset >= 800:
+            return artists
     
     return artists
 
@@ -100,20 +103,27 @@ def get_artist_rec(sp, genre, num_of_artists, popularity):
     while len(rec_tracks) < num_of_artists:
         artist_by_genre = get_artist_by_genre(sp, genre= genre, limit= 10, offset= offset_num, popularity= popularity) #set limit to 10 to avoid heavy compute strain
         for i in artist_by_genre:
-            if len(rec_tracks) == num_of_artists:
-                return rec_tracks
+            if len(set(rec_tracks)) == num_of_artists:
+                return list(set(rec_tracks))
             elif i not in recent_listened:
                 rec_tracks.append(i)
             
         
 
         offset_num += 10
+        if offset_num >= 800:
+            return list(set(rec_tracks))
 
 
-def track_and_artist(sp, artists):
+def track_and_artist(sp, genre, num_of_artists, popularity):
     # {'place': 'missoula}
     artist_track = {}
-
+    
+    artists = get_artist_rec(sp, 
+    genre= genre, 
+    num_of_artists= num_of_artists, 
+    popularity= popularity)
+    
     for i in artists:
         artist_track[i] = []
 
@@ -140,7 +150,7 @@ def track_and_artist(sp, artists):
                 except IndexError:
                     continue
                 
-            if len(temp) != 3:
+            if len(temp) < 3:
                 offset+= 3
                 artist_data= sp.search(
                     q= str(artists[i]),
@@ -149,11 +159,52 @@ def track_and_artist(sp, artists):
                     offset= offset,
                     market= 'US'
                 )
+            
+            elif len(temp) == 3:
+                break
 
         artist_track[artists[i]] = temp
         offset= 0
 
     return artist_track 
 
-def get_track_photos(sp, artists_songs):
-    pass
+def get_artist_photos(sp, genre, num_of_artists, popularity):
+    rec_dict= track_and_artist(sp, genre= genre, num_of_artists= num_of_artists, popularity= popularity)
+
+    out= {}
+    for name in rec_dict.keys():
+        # Search a few candidates for this name
+        res = sp.search(q=f'artist:"{name}"', type="artist", limit=5)
+        items = (res.get("artists") or {}).get("items") or []
+        if not items:
+            out[name] = None
+            continue
+
+        # Pick best match: exact name (case-insensitive) else most popular
+        best = next((a for a in items if (a.get("name","").lower() == name.lower())), None)
+        if best is None:
+            best = max(items, key=lambda a: a.get("popularity", 0))
+
+        images = best.get("images") or []
+        if not images:
+            out[name] = None
+            continue
+
+        # Prefer square images, closest to target_size; else first available
+        squares = [im for im in images if im.get("width") and im.get("height") and im["width"] == im["height"]]
+        if squares:
+            squares.sort(key=lambda im: abs(im["width"] - 320))
+            out[name] = squares[0].get("url")
+        else:
+            out[name] = images[0].get("url")
+
+    return out
+
+
+if __name__ == '__main__':
+    sp = get_spotify_client()
+    genres = genre_breakdown(sp, limit= 20, time_range= 'long_term', offset = 0)
+
+    for genre in genres:
+        print(genre)
+        print(get_artist_photos(sp, genre= str(genre), num_of_artists= 10, popularity= 'high'))

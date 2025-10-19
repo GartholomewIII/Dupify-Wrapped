@@ -18,10 +18,11 @@ from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 
 from pathlib import Path
 
-from gui.workers import ArtistCardsWorker, GenreCardsWorker, TopTracksWorker, start_worker  # new worker
+from gui.workers import ArtistCardsWorker, GenreCardsWorker, TopTracksWorker,RecommendArtistTrackWorker, start_worker  # new worker
 from gui.widgets.artist_card import ArtistCard
 from gui.widgets.genre_card import GenreBannerCard   
 from gui.widgets.top_songs_card import TrackCard
+from gui.widgets.reccomend_card import RecCard
         
 
 def load_stylesheet():
@@ -84,12 +85,18 @@ class MainPage(QWidget):
         ctrl = QHBoxLayout()
         ctrl.setObjectName('control-labels')
 
-        self.cmb_view = QComboBox(); self.cmb_view.addItems(["Top Artists", "Top Genres", "Top Tracks", "Reccomend More"])
+        self.cmb_view = QComboBox(); self.cmb_view.addItems(["Top Artists", "Top Genres", "Top Tracks", "Recommend More"])
         self.cmb_view.setObjectName('mode')
 
+        #changes cmb val if the selector is reccomended
+    
+
+            
         self.time_range_dict = {'3 Months': 'short_term', '6 Months': 'medium_term', 'One Year': 'long_term'}
         self.cmb_range = QComboBox(); self.cmb_range.addItems(["3 Months", "6 Months", "One Year"])
         self.cmb_range.setObjectName('time-length')
+
+
 
         self.spn_limit = QSpinBox(); self.spn_limit.setRange(1, 20); self.spn_limit.setValue(12)
         self.spn_limit.setObjectName('num-lim')
@@ -152,7 +159,7 @@ class MainPage(QWidget):
             w = item.widget()
             if w:
                 w.deleteLater()
-        
+
         tr  = self.time_range_dict[self.cmb_range.currentText()]
         lim = int(self.spn_limit.value())
         view = self.cmb_view.currentText()
@@ -184,8 +191,20 @@ class MainPage(QWidget):
             self._worker.done.connect(self._worker.deleteLater)
             self._thread.finished.connect(self._thread.deleteLater)
             self._thread.start()
-        else:
-            pass
+
+        elif view.startswith("Recommend More"):
+            
+            self.status.setText("Thinking...")
+            pop = 'high'   # 'low'/'med'/'high'
+            self._worker = RecommendArtistTrackWorker(self.sp, popularity=pop)
+            self._thread = start_worker(self, self._worker, self._worker.run)
+
+            self._worker.done.connect(self.on_rec_cards_done)
+            self._worker.finished.connect(self._thread.quit)
+            self._worker.finished.connect(self._worker.deleteLater)
+            self._thread.finished.connect(self._thread.deleteLater)
+
+            self._thread.start()
 
     @Slot(list, object)
     def on_artist_cards_done(self, items: List[Dict[str, Optional[str]]], error):
@@ -244,6 +263,48 @@ class MainPage(QWidget):
             self.grid.addWidget(card, r, c)
 
         self.status.setText(f"Loaded {len(items)} tracks")
+
+    @Slot(dict, object)
+    def on_rec_cards_done(self, payload, error):
+        if error:
+            self.status.setText("Error loading recs")
+            QMessageBox.critical(self, "Recommendations Error", str(error))
+            return
+        if not payload or "recs" not in payload or "photos" not in payload:
+            self.status.setText("No recs found")
+            return
+
+        recs = payload["recs"]     # {genre:{artist:[tracks...]}}
+        photos = payload["photos"] # {artist:url}
+
+        # flatten to unique artists (keep order) — cap at 9 for a 3x3 grid
+        artists = []
+        seen = set()
+        for genre, amap in recs.items():
+            for artist, tracks in amap.items():
+                if artist not in seen:
+                    seen.add(artist)
+                    artists.append((artist, tracks))
+                if len(artists) >= 9:
+                    break
+            if len(artists) >= 9:
+                break
+
+        if not artists:
+            self.status.setText("No recs found")
+            return
+
+        cols = 3
+        for i, (artist, tracks) in enumerate(artists):
+            r, c = divmod(i, cols)
+            img_url = photos.get(artist)
+            # If your RecCard expects just (artist, image_url):
+            card = RecCard(artist, img_url)
+            # If RecCard also wants tracks, do: RecCard(artist, tracks, img_url)
+            self.grid.addWidget(card, r, c)
+
+        self.status.setText(f"Loaded {len(artists)} recommended artists")
+
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

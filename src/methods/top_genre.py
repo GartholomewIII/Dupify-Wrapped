@@ -183,5 +183,5 @@ def get_genre_banners(sp, time_range="medium_term", limit=3):
         if url:
             seen.add(url)
         out.append({"genre": g, "image_url": url})
-        
+    print(out)
     return out

@@ -13,7 +13,7 @@ from src.spotify_client import get_spotify_client
 from src.methods.top_artist import top_artists
 from src.methods.top_genre import genre_breakdown, get_photos, get_genre_banners
 from src.methods.top_tracks import top_tracks_items, top_tracks_map
-
+from src.methods.rec import genre_breakdown, genre_artist_track, get_artist_photos
 
 
 
@@ -143,6 +143,39 @@ class TopTracksWorker(QObject):
                 self.done.emit(items, None)
             except Exception as e:
                 self.done.emit([], ee)
+
+
+class RecommendArtistTrackWorker(QObject):
+    
+    done = Signal(dict, object)   # payload, error
+    error = Signal(str)
+    finished = Signal()
+
+    def __init__(self, sp, popularity, time_range='long_term', limit=20):
+        super().__init__()
+        self.sp = sp
+        self.time_range = time_range
+        self.limit = limit
+        self.popularity = popularity
+
+    @Slot()
+    def run(self):
+        try:
+            genres = genre_breakdown(self.sp, limit=self.limit, time_range=self.time_range)
+            recs = genre_artist_track(self.sp, genres=genres, popularity=self.popularity)  # {genre:{artist:[...]}}
+
+            photos = get_artist_photos(self.sp, genre_artist_track=recs)  # {artist: url}
+            payload = {"recs": recs, "photos": photos}
+            self.done.emit(payload, None)
+        except Exception as e:
+            # either use the dedicated error signal OR pass error via done; here we pass via done:
+            self.done.emit({}, e)
+        finally:
+            self.finished.emit()
+
+    
+
+
 def start_worker(widget_parent, worker: QObject, started_slot):
     """Utility to spin up a worker on its own QThread and wire cleanup."""
     t = QThread(widget_parent)

@@ -6,7 +6,7 @@ What it Does: Calls the Spotify API methods and retrieves user data that is goin
 '''
 TO DO: CLEAN UP UNUSED FUNCTIONS
 '''
-
+'''
 from typing import Literal, Dict, Any, List, Optional, Union
 from collections import Counter
 from .spotify_client import get_spotify_client
@@ -432,4 +432,4 @@ if __name__ == '__main__':
         artists= get_artist_rec(sp, genre= genre,num_of_artists= 5, popularity= 'high')
         print(track_and_artist(sp, artists= artists))
     
-    
+'''

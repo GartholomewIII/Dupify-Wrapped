@@ -1,3 +1,9 @@
+'''
+Author: Quinn (gigawttz)
+
+What it does: reccomends artist and tracks based on the users top genres and listening habits
+Flow: genre_breakdown -> genre_artist_track -> get_artist_photos
+'''
 from typing import Literal, Dict, Any, List, Optional, Union
 from collections import Counter
 
@@ -168,43 +174,56 @@ def track_and_artist(sp, genre, num_of_artists, popularity):
 
     return artist_track 
 
-def get_artist_photos(sp, genre, num_of_artists, popularity):
-    rec_dict= track_and_artist(sp, genre= genre, num_of_artists= num_of_artists, popularity= popularity)
+def get_artist_photos(sp, genre_artist_track):
+
 
     out= {}
-    for name in rec_dict.keys():
-        # Search a few candidates for this name
-        res = sp.search(q=f'artist:"{name}"', type="artist", limit=5)
-        items = (res.get("artists") or {}).get("items") or []
-        if not items:
-            out[name] = None
-            continue
 
-        # Pick best match: exact name (case-insensitive) else most popular
-        best = next((a for a in items if (a.get("name","").lower() == name.lower())), None)
-        if best is None:
-            best = max(items, key=lambda a: a.get("popularity", 0))
+    for outer_key, inner_dict in genre_artist_track.items():
+        for name in inner_dict:
+            # Search a few candidates for this name
+            res = sp.search(q=f'artist:"{name}"', type="artist", limit=5)
+            items = (res.get("artists") or {}).get("items") or []
+            if not items:
+                out[name] = None
+                continue
 
-        images = best.get("images") or []
-        if not images:
-            out[name] = None
-            continue
+            # Pick best match: exact name (case-insensitive) else most popular
+            best = next((a for a in items if (a.get("name","").lower() == name.lower())), None)
+            if best is None:
+                best = max(items, key=lambda a: a.get("popularity", 0))
 
-        # Prefer square images, closest to target_size; else first available
-        squares = [im for im in images if im.get("width") and im.get("height") and im["width"] == im["height"]]
-        if squares:
-            squares.sort(key=lambda im: abs(im["width"] - 320))
-            out[name] = squares[0].get("url")
-        else:
-            out[name] = images[0].get("url")
+            images = best.get("images") or []
+            if not images:
+                out[name] = None
+                continue
+
+            # Prefer square images, closest to target_size; else first available
+            squares = [im for im in images if im.get("width") and im.get("height") and im["width"] == im["height"]]
+            if squares:
+                squares.sort(key=lambda im: abs(im["width"] - 320))
+                out[name] = squares[0].get("url")
+            else:
+                out[name] = images[0].get("url")
+
+    return out
+
+def genre_artist_track(sp, genres, popularity, num_of_artists= 3 ):
+    out = {}
+
+    for i in genres:
+        out[i]= track_and_artist(sp, genre= i, num_of_artists= num_of_artists, popularity= popularity)
 
     return out
 
 
 if __name__ == '__main__':
     sp = get_spotify_client()
-    genres = genre_breakdown(sp, limit= 20, time_range= 'long_term', offset = 0)
 
-    for genre in genres:
-        print(genre)
-        print(get_artist_photos(sp, genre= str(genre), num_of_artists= 10, popularity= 'high'))
+    genres = genre_breakdown(sp, limit= 20, time_range= 'long_term', offset = 0)
+    genre_artist_track = genre_artist_track(sp, genres= genres, popularity= 'high')
+    artist_photos = get_artist_photos(sp, genre_artist_track= genre_artist_track)
+
+    print(genre_artist_track)
+    print(artist_photos)
+    

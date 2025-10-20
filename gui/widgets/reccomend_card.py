@@ -18,6 +18,7 @@ class RecCard(QWidget):
     def __init__(
         self,
         artist: str,
+        genre: str,
         image_url: Optional[str] = None,
         tracks: Optional[List[str]] = None,
         size: int = 160,
@@ -33,6 +34,8 @@ class RecCard(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
+        
+
 
         # image
         self.img = QLabel()

@@ -274,36 +274,26 @@ class MainPage(QWidget):
             self.status.setText("No recs found")
             return
 
-        recs = payload["recs"]     # {genre:{artist:[tracks...]}}
-        photos = payload["photos"] # {artist:url}
+        
+        recs   = payload["recs"]     # {genre: {artist: [tracks...]}}
+        photos = payload["photos"]   # {artist: url}
 
-        # flatten to unique artists (keep order) — cap at 9 for a 3x3 grid
-        artists = []
-        seen = set()
-        for genre, amap in recs.items():
-            for artist, tracks in amap.items():
-                if artist not in seen:
-                    seen.add(artist)
-                    artists.append((artist, tracks))
-                if len(artists) >= 9:
-                    break
-            if len(artists) >= 9:
-                break
+        # exactly 3 genres, 3 artists each (by your failsafes)
+        genres = list(recs.keys())[:3]  # preserve order
 
-        if not artists:
-            self.status.setText("No recs found")
-            return
+        for r, genre in enumerate(genres):               # rows = genres
+            artists_map = recs[genre]
+            artists = list(artists_map.keys())[:3]       # 3 artists per genre
+            for c, artist in enumerate(artists):         # cols = artists
+                if c == 0:
+                    genre_label = QLabel(str(genre))
+                    self.grid.addWidget(genre_label)
+                img_url = photos.get(artist)
+                # If your RecCard wants tracks too, grab: tracks = artists_map[artist]
+                card = RecCard(artist=artist, image_url=img_url, genre=genre)
+                self.grid.addWidget(card, r, c)
 
-        cols = 3
-        for i, (artist, tracks) in enumerate(artists):
-            r, c = divmod(i, cols)
-            img_url = photos.get(artist)
-            # If your RecCard expects just (artist, image_url):
-            card = RecCard(artist, img_url)
-            # If RecCard also wants tracks, do: RecCard(artist, tracks, img_url)
-            self.grid.addWidget(card, r, c)
-
-        self.status.setText(f"Loaded {len(artists)} recommended artists")
+        self.status.setText("Loaded 9 recommended artists")
 
 
     def resizeEvent(self, event):

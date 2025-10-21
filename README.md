@@ -13,6 +13,12 @@ based on your previously listened to artists and genres
 Dupify utilizes the Spotify API and the Spotipy library that allows the usage of the Spotify API through Python
 it also utilizes the PySide6 framework to build an efficient and reliable GUI. 
 ***
+### Software Images (Pre Alpha Release)
+***
+![sign-in](repo-img/sign-in.gif)
+![top-artists](repo-img/img-1.png)
+
+***
 ### Open Source
 ***
 Dupify is free and open source, with future plans of a distributable EXE and installer, please feel free to make any 

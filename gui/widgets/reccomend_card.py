@@ -4,7 +4,7 @@
     # rec_card.py
 from typing import Optional, List
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QPixmap, QImage, QFont
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
@@ -15,6 +15,7 @@ class RecCard(QWidget):
     Usage:
         card = RecCard(artist="Yeat", image_url=url, tracks=["Track A", "Track B"])
     """
+    clicked = Signal(str, list, object)
     def __init__(
         self,
         artist: str,
@@ -27,8 +28,12 @@ class RecCard(QWidget):
         super().__init__(parent)
         self._nam = QNetworkAccessManager(self)
         self._orig_pix: Optional[QPixmap] = None
-
         self._size = size
+
+        self._artist = artist
+        self._tracks = (tracks or [])[:3]
+        self._image_url = image_url
+        self.setCursor(Qt.PointingHandCursor)
 
         # --- layout ---
         layout = QVBoxLayout(self)
@@ -109,3 +114,8 @@ class RecCard(QWidget):
         h = max(1, self.img.height())
         scaled = self._orig_pix.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         self.img.setPixmap(scaled)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.clicked.emit(self._artist, self._tracks, self._image_url)
+        super().mousePressEvent(e)

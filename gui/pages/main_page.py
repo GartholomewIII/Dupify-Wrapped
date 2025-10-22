@@ -14,15 +14,18 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
+from PySide6.QtGui import QFont
 
 
 from pathlib import Path
 
 from gui.workers import ArtistCardsWorker, GenreCardsWorker, TopTracksWorker,RecommendArtistTrackWorker, start_worker  # new worker
+
 from gui.widgets.artist_card import ArtistCard
 from gui.widgets.genre_card import GenreBannerCard   
 from gui.widgets.top_songs_card import TrackCard
 from gui.widgets.reccomend_card import RecCard
+from .rec_modal import RecModal
         
 
 def load_stylesheet():
@@ -40,6 +43,7 @@ class MainPage(QWidget):
         self.sp = None
         self._thread: Optional[QThread] = None
         self._worker = None
+        
 
         #----------BACKGROUND VIDEO-----------
         self._scene = QGraphicsScene(self)
@@ -74,7 +78,7 @@ class MainPage(QWidget):
         
 
         #--------LABELS--------------------------
-        self.header = QLabel("Spotify Companion — Dashboard")
+        self.header = QLabel("Dupify")
         root.addWidget(self.header)
         self.header.setObjectName("main-pg-header")
 
@@ -91,7 +95,7 @@ class MainPage(QWidget):
         #changes cmb val if the selector is reccomended
     
 
-            
+        
         self.time_range_dict = {'3 Months': 'short_term', '6 Months': 'medium_term', 'One Year': 'long_term'}
         self.cmb_range = QComboBox(); self.cmb_range.addItems(["3 Months", "6 Months", "One Year"])
         self.cmb_range.setObjectName('time-length')
@@ -118,6 +122,13 @@ class MainPage(QWidget):
         ctrl.addWidget(self.btn_fetch)
         root.addLayout(ctrl)
 
+        self._rec_hideables = [
+            self.time_label, self.cmb_range,
+            self.limit_label, self.spn_limit
+            ]
+
+
+
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
             
@@ -127,7 +138,6 @@ class MainPage(QWidget):
             
 
         self.grid.setHorizontalSpacing(16)
-        self.grid.setVerticalSpacing(16)
         self.scroll.setWidget(self.grid_host)
         root.addWidget(self.scroll)
         
@@ -139,6 +149,9 @@ class MainPage(QWidget):
 
         stack.setCurrentWidget(content)
 
+        
+        self.cmb_view.currentTextChanged.connect(self._on_view_changed)
+        self._on_view_changed(self.cmb_view.currentText())
     def set_client(self, sp):
         self.sp = sp
         try:
@@ -147,6 +160,18 @@ class MainPage(QWidget):
         except Exception:
             self.status.setText("Signed in.")
         self.btn_fetch.setEnabled(True)
+
+    def _on_view_changed(self, text: str):
+        show_time  = (text != "Recommend More")
+        self.time_label.setVisible(show_time)
+        self.cmb_range.setVisible(show_time)
+
+        # limit shown only for "Top Artists" and "Top Tracks"
+        show_limit = (text in ("Top Artists", "Top Tracks"))
+        self.limit_label.setVisible(show_limit)
+        self.spn_limit.setVisible(show_limit)
+        
+
 
     def on_fetch_clicked(self):
         if not self.sp:
@@ -278,22 +303,35 @@ class MainPage(QWidget):
         recs   = payload["recs"]     # {genre: {artist: [tracks...]}}
         photos = payload["photos"]   # {artist: url}
 
-        # exactly 3 genres, 3 artists each (by your failsafes)
         genres = list(recs.keys())[:3]  # preserve order
 
-        for r, genre in enumerate(genres):               # rows = genres
-            artists_map = recs[genre]
-            artists = list(artists_map.keys())[:3]       # 3 artists per genre
-            for c, artist in enumerate(artists):         # cols = artists
-                if c == 0:
-                    genre_label = QLabel(str(genre))
-                    self.grid.addWidget(genre_label)
+
+        for i, genre in enumerate(genres):
+            header_row = i * 2
+            cards_row  = header_row + 1
+
+            
+            lbl = QLabel(str(genre))
+            f = QFont()
+            f.setPointSize(20)
+            f.setBold(True)
+            lbl.setFont(f)
+            lbl.setStyleSheet("padding-left: 12px;")
+            self.grid.addWidget(lbl, header_row, 0, 1, 3, alignment=Qt.AlignLeft)  
+
+            for c, artist in enumerate(list(recs[genre].keys())[:3]):
                 img_url = photos.get(artist)
-                # If your RecCard wants tracks too, grab: tracks = artists_map[artist]
-                card = RecCard(artist=artist, image_url=img_url, genre=genre)
-                self.grid.addWidget(card, r, c)
+                tracks  = recs[genre][artist]          # this is the list you want
+                card = RecCard(artist=artist, image_url=img_url, genre=genre, tracks=tracks)
+                card.clicked.connect(self.show_rec_modal)
+                self.grid.addWidget(card, cards_row, c)
 
         self.status.setText("Loaded 9 recommended artists")
+
+    def show_rec_modal(self, artist: str, tracks: list[str], image_url: str | None, genre: str | None = None):
+        
+        dlg = RecModal(artist, tracks, image_url, parent= self)
+        dlg.exec()
 
 
     def resizeEvent(self, event):

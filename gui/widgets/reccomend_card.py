@@ -20,6 +20,7 @@ class RecCard(QWidget):
         self,
         artist: str,
         genre: str,
+        track_urls : dict,
         image_url: Optional[str] = None,
         tracks: Optional[List[str]] = None,
         size: int = 160,
@@ -59,18 +60,6 @@ class RecCard(QWidget):
         self.lbl_artist.setFont(f)
         layout.addWidget(self.lbl_artist, alignment=Qt.AlignHCenter)
 
-        # optional tracks (small, up to 3)
-        self.lbl_tracks = QLabel()
-        self.lbl_tracks.setAlignment(Qt.AlignCenter)
-        self.lbl_tracks.setWordWrap(True)
-        tf = QFont()
-        tf.setPointSize(9)
-        self.lbl_tracks.setFont(tf)
-        layout.addWidget(self.lbl_tracks, alignment=Qt.AlignHCenter)
-
-        if tracks:
-            self.set_tracks(tracks)
-
         if image_url:
             self.set_image_url(image_url)
 
@@ -78,14 +67,6 @@ class RecCard(QWidget):
     def set_artist(self, name: str):
         self.lbl_artist.setText(name or "Unknown")
 
-    def set_tracks(self, tracks: List[str]):
-        # show at most 3, join with bullets
-        tracks = [t for t in (tracks or []) if t][:3]
-        self.lbl_tracks.setVisible(bool(tracks))
-        if tracks:
-            self.lbl_tracks.setText(" • ".join(tracks))
-        else:
-            self.lbl_tracks.clear()
 
     def set_image_url(self, url: str):
         if not url:

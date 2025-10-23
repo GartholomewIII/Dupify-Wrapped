@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 class RecModal(QDialog):
 
-    def __init__(self, artist, tracks, image_url, parent= None):
+    def __init__(self, artist, tracks, image_url, track_urls, parent= None):
 
         super().__init__(parent)
         self.setWindowTitle(f"{artist} Recommendations")

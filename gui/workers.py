@@ -13,7 +13,7 @@ from src.spotify_client import get_spotify_client
 from src.methods.top_artist import top_artists
 from src.methods.top_genre import genre_breakdown, get_photos, get_genre_banners
 from src.methods.top_tracks import top_tracks_items, top_tracks_map
-from src.methods.rec import genre_breakdown, genre_artist_track, get_artist_photos
+from src.methods.rec import genre_breakdown, genre_artist_track, get_artist_photos, get_track_link
 
 
 
@@ -164,8 +164,24 @@ class RecommendArtistTrackWorker(QObject):
             genres = genre_breakdown(self.sp, limit=self.limit, time_range=self.time_range)
             recs = genre_artist_track(self.sp, genres=genres, popularity=self.popularity)  # {genre:{artist:[...]}}
 
+            links = {}
+
+            for genre in genres[:3]:                                  # your 3 genres
+                for artist, tracks in list(recs.get(genre, {}).items())[:3]:  # 3 artists per genre
+                    for track in tracks:
+                        url = get_track_link(self.sp, artist, track)
+                        if not url:
+                            continue
+                        key = track
+                        # avoid collisions if two different artists have a track with same title
+                        if key in links:
+                            key = f"{track} — {artist}"
+                        links[key] = url
+
+
             photos = get_artist_photos(self.sp, genre_artist_track=recs)  # {artist: url}
-            payload = {"recs": recs, "photos": photos}
+            print(links)
+            payload = {"recs": recs, "photos": photos, "links": links}
             self.done.emit(payload, None)
         except Exception as e:
             # either use the dedicated error signal OR pass error via done; here we pass via done:

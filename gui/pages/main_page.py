@@ -302,7 +302,7 @@ class MainPage(QWidget):
         
         recs   = payload["recs"]     # {genre: {artist: [tracks...]}}
         photos = payload["photos"]   # {artist: url}
-
+        links = payload["links"]     # {track_title: url}
         genres = list(recs.keys())[:3]  # preserve order
 
 
@@ -321,16 +321,17 @@ class MainPage(QWidget):
 
             for c, artist in enumerate(list(recs[genre].keys())[:3]):
                 img_url = photos.get(artist)
-                tracks  = recs[genre][artist]          # this is the list you want
-                card = RecCard(artist=artist, image_url=img_url, genre=genre, tracks=tracks)
+                tracks  = recs[genre][artist]
+
+                card = RecCard(artist=artist, image_url=img_url, genre=genre, tracks=tracks, track_urls= links)
                 card.clicked.connect(self.show_rec_modal)
                 self.grid.addWidget(card, cards_row, c)
 
         self.status.setText("Loaded 9 recommended artists")
 
-    def show_rec_modal(self, artist: str, tracks: list[str], image_url: str | None, genre: str | None = None):
+    def show_rec_modal(self, artist: str, tracks: list[str], track_urls, image_url: str | None, genre: str | None = None):
         
-        dlg = RecModal(artist, tracks, image_url, parent= self)
+        dlg = RecModal(artist= artist, tracks= tracks, track_urls= track_urls,image_url= image_url, parent= self)
         dlg.exec()
 
 

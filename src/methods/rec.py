@@ -216,6 +216,40 @@ def genre_artist_track(sp, genres, popularity, num_of_artists= 3 ):
 
     return out
 
+def get_track_link(sp, artist, track, market= 'US'):
+
+    # 1) strict search: quoted artist + track
+    q = f'track:"{track}" artist:"{artist}"'
+    res = sp.search(q=q, type="track", limit=10, market=market)
+    items = (res.get("tracks") or {}).get("items") or []
+
+    # 2) fallback: looser search if strict returns nothing
+    if not items:
+        q = f'{track} {artist}'
+        res = sp.search(q=q, type="track", limit=10, market=market)
+        items = (res.get("tracks") or {}).get("items") or []
+        if not items:
+            return None
+
+    # 3) pick best match (exact name/artist first, then popularity)
+    tl = track.lower()
+    al = artist.lower()
+
+    def score(t):
+        tname = (t.get("name") or "").lower()
+        anames = [a.get("name","").lower() for a in t.get("artists") or []]
+        s = 0
+        if tname == tl: s += 2
+        if al in anames: s += 2
+        if tl in tname: s += 1
+        if any(al in a for a in anames): s += 1
+        return (s, t.get("popularity", 0))
+
+    best = max(items, key=score)
+    return (best.get("external_urls") or {}).get("spotify") or (
+        f'https://open.spotify.com/track/{best["id"]}' if best.get("id") else None
+)
+
 
 if __name__ == '__main__':
     sp = get_spotify_client()

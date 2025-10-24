@@ -46,11 +46,11 @@ def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
 
 
     if popularity == 'high':
-        offset= random.randrange(0, 40)
+        offset= random.randrange(0, 20)
     elif popularity == 'med':
-        offset= random.randrange(100, 190)
+        offset= random.randrange(0, 20)
     else:
-        offset= random.randrange(400, 480)
+        offset= random.randrange(0, 20)
 
     artists = []
 
@@ -69,21 +69,27 @@ def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
         items = res.get('artists')
         
 
-
+        page = (res.get("artists") or res.get("tracks") or {})
+        entries = page.get("items", []) or []
+        if not entries:  # no more results
+            break
 
         for i in items['items']:
             pop = i.get('popularity', 0)
             if len(artists) < limit:
-                if popularity == 'low' and (pop>= 0 and pop< 25):
+                if popularity == 'low' and (pop>= 0 and pop< 50):
                     artists.append(i['name'])
 
-                elif popularity == 'med' and (pop>= 25 and pop< 50):
+                elif popularity == 'med' and (pop>= 50 and pop< 70):
                     artists.append(i['name'])
                 
-                elif popularity == 'high' and (pop>= 50):
+                elif popularity == 'high' and (pop>= 70):
 
                     artists.append(i['name'])
-        offset+= 10
+
+        offset += page.get("limit", len(entries))  # advance by page size actually returned
+        if not page.get("next") or len(entries) < page.get("limit", 50):
+            break
 
         if offset >= 800:
             return artists
@@ -99,27 +105,23 @@ def get_artist_rec(sp, genre, num_of_artists, popularity):
     
     TO DO: IMPLIMENT A RANDOMIZER FUNCTION
     '''
-    recent_listened = get_recent_artists(sp, limit= 50) #returns arr of listened to artists
-    
-
+    recent_listened = get_recent_artists(sp, limit=50)  # returns arr of listened to artists
     rec_tracks = []
-
-    offset_num = 50
+    offset_num = 0
 
     while len(rec_tracks) < num_of_artists:
-        artist_by_genre = get_artist_by_genre(sp, genre= genre, limit= 10, offset= offset_num, popularity= popularity) #set limit to 10 to avoid heavy compute strain
+        artist_by_genre = get_artist_by_genre(
+            sp, genre=genre, limit=10, offset=offset_num, popularity=popularity
+        )  # set limit to 10 to avoid heavy compute strain
         for i in artist_by_genre:
             if len(set(rec_tracks)) == num_of_artists:
                 return list(set(rec_tracks))
             elif i not in recent_listened:
                 rec_tracks.append(i)
-            
-        
 
-        offset_num += 10
-        if offset_num >= 800:
-            return list(set(rec_tracks))
+        offset_num += 1
 
+    return list(set(rec_tracks))
 
 def track_and_artist(sp, genre, num_of_artists, popularity):
     # {'place': 'missoula}
@@ -143,6 +145,10 @@ def track_and_artist(sp, genre, num_of_artists, popularity):
             offset= offset,
             market= 'US'
         )
+        page = (artist_data.get("artists") or artist_data.get("tracks") or {})
+        entries = page.get("items", []) or []
+        if not entries:  # no more results
+            break
 
         temp = []
         while len(temp) != 3:
@@ -157,7 +163,10 @@ def track_and_artist(sp, genre, num_of_artists, popularity):
                     continue
                 
             if len(temp) < 3:
-                offset+= 3
+                offset += page.get("limit", len(entries))  # advance by page size actually returned
+                if not page.get("next") or len(entries) < page.get("limit", 50):
+                    break
+
                 artist_data= sp.search(
                     q= str(artists[i]),
                     type= 'track',
@@ -165,6 +174,11 @@ def track_and_artist(sp, genre, num_of_artists, popularity):
                     offset= offset,
                     market= 'US'
                 )
+                
+                page = (artist_data.get("artists") or artist_data.get("tracks") or {})
+                entries = page.get("items", []) or []
+                if not entries:  # no more results
+                    break
             
             elif len(temp) == 3:
                 break

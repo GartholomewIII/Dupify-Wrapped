@@ -95,12 +95,15 @@ class MainPage(QWidget):
         #changes cmb val if the selector is reccomended
     
 
-        
+        self.pop_label = QLabel('Popularity:')
+        self.pop_label.setObjectName('view-label')
+
+        self.popularity_range = QComboBox(); self.popularity_range.addItems(["low", "med", "high"])
+        self.popularity_range.setObjectName('time-length')
+
         self.time_range_dict = {'3 Months': 'short_term', '6 Months': 'medium_term', 'One Year': 'long_term'}
         self.cmb_range = QComboBox(); self.cmb_range.addItems(["3 Months", "6 Months", "One Year"])
         self.cmb_range.setObjectName('time-length')
-
-
 
         self.spn_limit = QSpinBox(); self.spn_limit.setRange(1, 20); self.spn_limit.setValue(12)
         self.spn_limit.setObjectName('num-lim')
@@ -116,11 +119,16 @@ class MainPage(QWidget):
         self.time_label.setObjectName('time-label')
         ctrl.addWidget(self.time_label);  ctrl.addWidget(self.cmb_range)
 
+        ctrl.addWidget(self.pop_label); ctrl.addWidget(self.popularity_range)
+
         self.limit_label = QLabel('Limit:')
         self.limit_label.setObjectName('limit-label')
         ctrl.addWidget(self.limit_label);       ctrl.addWidget(self.spn_limit)
         ctrl.addWidget(self.btn_fetch)
         root.addLayout(ctrl)
+
+
+        
 
         self._rec_hideables = [
             self.time_label, self.cmb_range,
@@ -165,7 +173,8 @@ class MainPage(QWidget):
         show_time  = (text != "Recommend More")
         self.time_label.setVisible(show_time)
         self.cmb_range.setVisible(show_time)
-
+        self.pop_label.setVisible(show_time == False)
+        self.popularity_range.setVisible(show_time == False)
         # limit shown only for "Top Artists" and "Top Tracks"
         show_limit = (text in ("Top Artists", "Top Tracks"))
         self.limit_label.setVisible(show_limit)
@@ -218,9 +227,9 @@ class MainPage(QWidget):
             self._thread.start()
 
         elif view.startswith("Recommend More"):
-            
+    
             self.status.setText("Thinking...")
-            pop = 'high'   # 'low'/'med'/'high'
+            pop = self.popularity_range.currentText()   # 'low'/'med'/'high'
             self._worker = RecommendArtistTrackWorker(self.sp, popularity=pop)
             self._thread = start_worker(self, self._worker, self._worker.run)
 
@@ -302,7 +311,7 @@ class MainPage(QWidget):
         
         recs   = payload["recs"]     # {genre: {artist: [tracks...]}}
         photos = payload["photos"]   # {artist: url}
-        links = payload["links"]     # {track_title: url}
+        self._links = payload["links"]     # {track_title: url}
         genres = list(recs.keys())[:3]  # preserve order
 
 
@@ -323,15 +332,15 @@ class MainPage(QWidget):
                 img_url = photos.get(artist)
                 tracks  = recs[genre][artist]
 
-                card = RecCard(artist=artist, image_url=img_url, genre=genre, tracks=tracks, track_urls= links)
+                card = RecCard(artist=artist, genre=genre, image_url=img_url, tracks=tracks)
                 card.clicked.connect(self.show_rec_modal)
                 self.grid.addWidget(card, cards_row, c)
 
         self.status.setText("Loaded 9 recommended artists")
 
-    def show_rec_modal(self, artist: str, tracks: list[str], track_urls, image_url: str | None, genre: str | None = None):
-        
-        dlg = RecModal(artist= artist, tracks= tracks, track_urls= track_urls,image_url= image_url, parent= self)
+    def show_rec_modal(self, artist: str, tracks: list[str], image_url: str | None):
+        dlg = RecModal(artist=artist, tracks=tracks, image_url=image_url,
+                    track_urls=self._links, parent=self)
         dlg.exec()
 
 

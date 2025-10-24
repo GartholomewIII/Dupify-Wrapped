@@ -20,7 +20,6 @@ class RecCard(QWidget):
         self,
         artist: str,
         genre: str,
-        track_urls : dict,
         image_url: Optional[str] = None,
         tracks: Optional[List[str]] = None,
         size: int = 160,

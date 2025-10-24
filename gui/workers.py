@@ -180,7 +180,7 @@ class RecommendArtistTrackWorker(QObject):
 
 
             photos = get_artist_photos(self.sp, genre_artist_track=recs)  # {artist: url}
-            print(links)
+            
             payload = {"recs": recs, "photos": photos, "links": links}
             self.done.emit(payload, None)
         except Exception as e:

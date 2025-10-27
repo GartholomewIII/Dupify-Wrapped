@@ -31,3 +31,16 @@ Thumbs.db
 .cache 
 .cache
 .cache_user
+
+build
+Dupify.spec
+dist
+
+
+Output/
+*.spec          
+Dupify-Setup-*.exe
+config.json
+*.log
+installer.iss
+resources.qrc

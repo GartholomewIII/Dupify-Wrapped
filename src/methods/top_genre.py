@@ -8,10 +8,7 @@ from pathlib import Path
 
 
 
-GENRE_MAP_PATH = Path(__file__).parent.parent / "data" / "genre_norm.json"
 
-with GENRE_MAP_PATH.open(encoding="utf-8") as f:
-    _CATEGORY_KEYWORDS = json.load(f)
 
 def genre_breakdown(sp, limit, time_range, offset = 0) -> Dict[str, Any]:
     raw_data = sp.current_user_top_artists(20, offset= offset, time_range= time_range)

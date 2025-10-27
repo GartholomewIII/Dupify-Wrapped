@@ -1,10 +1,10 @@
 from typing import Optional, List
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QPixmap, QImage, QFont
+from PySide6.QtGui import QPixmap, QImage, QFont, QDesktopServices
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QLabel, QListWidget,
-    QDialogButtonBox, QSizePolicy, QWidget
+    QDialogButtonBox, QSizePolicy, QWidget, QListWidgetItem
 )
 
 
@@ -20,7 +20,7 @@ class RecModal(QDialog):
 
         self._tracks = (tracks or [])[:3]
         self._image_url = image_url
-
+        self._track_url = track_urls
         #Layout
         root = QHBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
@@ -45,13 +45,12 @@ class RecModal(QDialog):
         right.addWidget(title)
 
         self.list = QListWidget()
+        self.list.itemClicked.connect(self.on_item_clicked)
         self.list.setUniformItemSizes(True)
         self.list.setAlternatingRowColors(True)
 
-        for t in (tracks or [])[:3]:
-            if t:
-                self.list.addItem(t)
-
+        for i in self._tracks:
+            self.add_list_item(i, self._track_url[i])
         right.addWidget(self.list)
 
         btns = QDialogButtonBox(QDialogButtonBox.Close)
@@ -92,3 +91,17 @@ class RecModal(QDialog):
         h = self.img.height()
         scaled = self._orig_pix.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         self.img.setPixmap(scaled)
+    
+    def on_item_clicked(self, item):
+
+        url = item.data(Qt.UserRole)
+
+
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+
+    def add_list_item(self, text, url):
+        item = QListWidgetItem(text)
+
+        item.setData(Qt.UserRole, url)
+        self.list.addItem(item)

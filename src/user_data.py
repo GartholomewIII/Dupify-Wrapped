@@ -291,12 +291,11 @@ def get_recent_artists(sp, limit):
 
 
 def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
-    '''
-    popularity
+        popularity
     low= 0-25
     med= 25-50
     high= 50-100
-    '''
+    
 
 
     if popularity == 'high':
@@ -343,13 +342,13 @@ def get_artist_by_genre(sp, genre, limit, popularity, offset= 0):
 
 
 def get_artist_rec(sp, genre, num_of_artists, popularity):
-    '''
+
     Limit calls of artists to MAX 5, lot of nested loops
     
     returns an arr of artist recs
     
     TO DO: IMPLIMENT A RANDOMIZER FUNCTION
-    '''
+
     recent_listened = get_recent_artists(sp, limit= 50) #returns arr of listened to artists
     
 

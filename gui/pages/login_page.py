@@ -26,7 +26,7 @@ class LoginPage(QWidget):
         bg_label = QLabel()
         bg_label.setScaledContents(True)
         bg_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # don't eat clicks
-        movie = QMovie(str(Path(__file__).parent / "assets" / "background-login.gif"))
+        movie = QMovie(":/pages/assets/background-login.gif")
         bg_label.setMovie(movie)
         movie.start()
 

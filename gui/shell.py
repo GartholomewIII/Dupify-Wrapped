@@ -15,7 +15,7 @@ class Shell(QWidget):
     """Container that swaps between LoginPage and MainPage."""
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Spotify Companion")
+        self.setWindowTitle("Dupify")
 
         self.setFixedSize(500,500)
         self._center_on_screen()
@@ -52,6 +52,5 @@ class Shell(QWidget):
         self.main_page.set_client(sp)
         self.stack.setCurrentIndex(1)
 
-        self.setMinimumSize(QSize(0, 0))
-        self.setMaximumSize(QSize(999999,999999))
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setFixedSize(750, 750)
+        self._center_on_screen()

@@ -63,7 +63,7 @@ class MainPage(QWidget):
         self._player.setVideoOutput(self._video_item)
 
         mp4 = Path(__file__).parent / "assets" / "background-vid.mp4"
-        self._player.setSource(QUrl.fromLocalFile(str(mp4)))
+        self._player.setSource(QUrl("qrc:/pages/assets/background-vid.mp4"))
         self._audio.setMuted(True)
         self._player.play()
         self._player.mediaStatusChanged.connect(

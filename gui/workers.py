@@ -5,6 +5,15 @@
 #to the frontend directory
 #--------------------------------
 
+
+
+import os, sys
+
+
+if getattr(sys, "frozen", False):
+    os.environ.setdefault("APP_ENV", "production")
+
+
 from typing import List, Optional
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
